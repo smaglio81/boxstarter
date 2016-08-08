@@ -50,7 +50,8 @@ Install-BoxstarterPackage
         $credsspEnabled=$True
         $Result.PreviousCSSPTrustedHosts=$credssp[0].substring($idxHosts+2)
         $hostArray=$Result.PreviousCSSPTrustedHosts.Split(",")
-        $RemoteHostsToTrust | ? { $hostArray -notcontains "wsman/$_" } | % { $ComputersToAdd += $_ }
+        # UCSB: maglio-s: replaced: $hostArray -notcontains "wsman/$_"
+        $RemoteHostsToTrust | ? { (Test-ArrayMatch $hostArray "wsman/$_") -eq $false } | % { $ComputersToAdd += $_ }
     }
     else {
         $ComputersToAdd = $RemoteHostsToTrust
@@ -79,6 +80,7 @@ Install-BoxstarterPackage
     $result.PreviousFreshCredDelegationHostCount = Set-CredentialDelegation $key 'AllowFreshCredentials' $RemoteHostsToTrust
 
     $Result.Success=$True
+    Write-BoxstarterMessage (ConvertTo-Json $Result)
     return $Result
 }
 
@@ -94,7 +96,8 @@ function Set-CredentialDelegation($key, $subKey, $allowed){
     }
     $currentLength = $currentHostProps.Length
     $idx=$currentLength
-    $allowed | ? { $currentHostProps -notcontains "wsman/$_"} | % {
+    # UCSB: maglio-s: replaced: $currentHostProps -notcontains "wsman/$_"
+    $allowed | ? { (Test-ArrayMatch $currentHostProps "wsman/$_") -eq $false } | % {
         ++$idx
         New-ItemProperty -Path $policyNode -Name "$idx" -Value "wsman/$_" -PropertyType String -Force | Out-Null
     }
@@ -104,4 +107,34 @@ function Set-CredentialDelegation($key, $subKey, $allowed){
 
 function Get-CredentialDelegationKey {
     return "HKLM:\SOFTWARE\Policies\Microsoft\Windows"
+}
+
+function ConvertTo-Regex($wildcard) {
+    if($wildcard -eq $null) { return $null; }
+    $regex = $wildcard
+    $regex = $regex.Replace(".", "\.")
+    $regex = $regex.Replace("*", ".*")
+    if($regex.StartsWith("(?i)") -eq $false) { $regex = "(?i)" + $regex }
+    return $regex
+}
+
+function Test-ArrayMatch($wildcardArray, $tomatch) {
+    $matched = $wildcardArray | ? {
+        $wildcard = $_
+        $regex = ConvertTo-Regex $wildcard
+        $tomatch -match $regex
+    }
+
+    if(@($matched).Count -gt 0) { return $true }
+
+    # also try concatenating the domain for matching
+    $tomatch += "." + $env:USERDNSDOMAIN
+
+    $matched = $wildcardArray | ? {
+        $wildcard = $_
+        $regex = ConvertTo-Regex $wildcard
+        $tomatch -match $regex
+    }
+
+    return @($matched).Count -gt 0
 }

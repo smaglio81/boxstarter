@@ -909,6 +909,7 @@ function Rollback-ClientRemoting($ClientRemotingStatus, $CredSSPStatus) {
         }
     }
     if($CredSSPStatus -ne $null -and $CredSSPStatus.Success){
+        <# UCSB: maglio-s: I'm not sure what this does
         try {Disable-WSManCredSSP -Role Client -ErrorAction SilentlyContinue } catch{ Write-BoxstarterMessage "Unable to disable CredSSP locally" }
         if($CredSSPStatus.PreviousCSSPTrustedHosts -ne $null){
             try{
@@ -916,7 +917,7 @@ function Rollback-ClientRemoting($ClientRemotingStatus, $CredSSPStatus) {
                 Enable-WSManCredSSP -DelegateComputer ($CredSSPStatus.PreviousCSSPTrustedHosts.Replace("wsman/","").split(",") | Get-Unique) -Role Client -force | Out-Null
             }
             catch{}
-        }
+        }#>
         Write-BoxstarterMessage "Reseting GroupPolicy for Credentials Delegation" -Verbose
         if(Test-Path "$(Get-CredentialDelegationKey)\CredentialsDelegation\AllowFreshCredentialsWhenNTLMOnly") {
             (Get-Item "$(Get-CredentialDelegationKey)\CredentialsDelegation\AllowFreshCredentialsWhenNTLMOnly").Property | % {
